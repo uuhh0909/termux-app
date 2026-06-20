@@ -23,7 +23,6 @@ import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
-import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import com.termux.R;
@@ -243,13 +242,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         setTermuxTerminalViewAndClients();
 
-        setTerminalToolbarView(savedInstanceState);
-
         setSettingsButtonView();
-
-        setNewSessionButtonView();
-
-        setToggleKeyboardView();
 
         registerForContextMenu(mTerminalView);
 
@@ -341,7 +334,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         removeTermuxActivityRootViewGlobalLayoutListener();
 
         unregisterTermuxActivityBroadcastReceiver();
-        getDrawer().closeDrawers();
+        closeDrawerIfPresent();
     }
 
     @Override
@@ -388,8 +381,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logDebug(LOG_TAG, "onServiceConnected");
 
         mTermuxService = ((TermuxService.LocalBinder) service).service;
-
-        setTermuxSessionsListView();
 
         final Intent intent = getIntent();
         setIntent(null);
@@ -462,10 +453,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void setMargins() {
-        RelativeLayout relativeLayout = findViewById(R.id.activity_termux_root_relative_layout);
+        View rootContent = findViewById(R.id.activity_termux_root_relative_layout);
         int marginHorizontal = mProperties.getTerminalMarginHorizontal();
         int marginVertical = mProperties.getTerminalMarginVertical();
-        ViewUtils.setLayoutMarginsInDp(relativeLayout, marginHorizontal, marginVertical, marginHorizontal, marginVertical);
+        ViewUtils.setLayoutMarginsInDp(rootContent, marginHorizontal, marginVertical, marginHorizontal, marginVertical);
     }
 
 
@@ -499,6 +490,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private void setTermuxSessionsListView() {
         ListView termuxSessionsListView = findViewById(R.id.terminal_sessions_list);
+        if (termuxSessionsListView == null) return;
         mTermuxSessionListViewController = new TermuxSessionsListViewController(this, mTermuxService.getTermuxSessions());
         termuxSessionsListView.setAdapter(mTermuxSessionListViewController);
         termuxSessionsListView.setOnItemClickListener(mTermuxSessionListViewController);
@@ -585,7 +577,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private void setToggleKeyboardView() {
         findViewById(R.id.toggle_keyboard_button).setOnClickListener(v -> {
             mTermuxTerminalViewClient.onToggleSoftKeyboardRequest();
-            getDrawer().closeDrawers();
+            closeDrawerIfPresent();
         });
 
         findViewById(R.id.toggle_keyboard_button).setOnLongClickListener(v -> {
@@ -601,11 +593,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @SuppressLint("RtlHardcoded")
     @Override
     public void onBackPressed() {
-        if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
-            getDrawer().closeDrawers();
+        DrawerLayout drawer = getDrawer();
+        if (drawer != null && drawer.isDrawerOpen(Gravity.LEFT)) {
+            drawer.closeDrawers();
         } else {
             finishActivityIfNotFinishing();
         }
+    }
+
+    public void closeDrawerIfPresent() {
+        DrawerLayout drawer = getDrawer();
+        if (drawer != null) drawer.closeDrawers();
     }
 
     public void finishActivityIfNotFinishing() {
@@ -833,8 +831,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mExtraKeysView = extraKeysView;
     }
 
+    @Nullable
     public DrawerLayout getDrawer() {
-        return (DrawerLayout) findViewById(R.id.drawer_layout);
+        return findViewById(R.id.drawer_layout);
     }
 
 
@@ -847,16 +846,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     public boolean isTerminalViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 0;
+        ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+        return terminalToolbarViewPager == null || terminalToolbarViewPager.getCurrentItem() == 0;
     }
 
     public boolean isTerminalToolbarTextInputViewSelected() {
-        return getTerminalToolbarViewPager().getCurrentItem() == 1;
+        ViewPager terminalToolbarViewPager = getTerminalToolbarViewPager();
+        return terminalToolbarViewPager != null && terminalToolbarViewPager.getCurrentItem() == 1;
     }
 
 
     public void termuxSessionListNotifyUpdated() {
-        mTermuxSessionListViewController.notifyDataSetChanged();
+        if (mTermuxSessionListViewController != null)
+            mTermuxSessionListViewController.notifyDataSetChanged();
     }
 
     public boolean isVisible() {
