@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
+import com.termux.app.terminal.TerminalSessionController;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
 import com.termux.shared.termux.plugins.TermuxPluginUtils;
@@ -65,7 +66,7 @@ import java.util.List;
  * Optionally may hold a wake and a wifi lock, in which case that is shown in the notification - see
  * {@link #buildNotification()}.
  */
-public final class TermuxService extends Service implements AppShell.AppShellClient, TermuxSession.TermuxSessionClient {
+public final class TermuxService extends Service implements TerminalSessionController, AppShell.AppShellClient, TermuxSession.TermuxSessionClient {
 
     /** This service is only bound from inside the same process and never uses IPC. */
     class LocalBinder extends Binder {
@@ -561,12 +562,26 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
      * Create a {@link TermuxSession}.
      * Currently called by {@link TermuxTerminalSessionActivityClient#addNewSession(boolean, String)} to add a new {@link TermuxSession}.
      */
+    @Override
+    @Nullable
+    public TermuxSession createTerminalSession(String executablePath, String[] arguments, String stdin,
+                                               String workingDirectory, boolean isFailSafe, String sessionName) {
+        return createTermuxSession(executablePath, arguments, stdin, workingDirectory, isFailSafe, sessionName);
+    }
+
     @Nullable
     public TermuxSession createTermuxSession(String executablePath, String[] arguments, String stdin,
                                              String workingDirectory, boolean isFailSafe, String sessionName) {
         ExecutionCommand executionCommand = new ExecutionCommand(TermuxShellManager.getNextShellId(),
             executablePath, arguments, stdin, workingDirectory, Runner.TERMINAL_SESSION.getName(), isFailSafe);
         executionCommand.shellName = sessionName;
+        return createTermuxSession(executionCommand);
+    }
+
+    /** Create a {@link TermuxSession}. */
+    @Override
+    @Nullable
+    public TermuxSession createTerminalSession(@Nullable ExecutionCommand executionCommand) {
         return createTermuxSession(executionCommand);
     }
 
@@ -623,6 +638,12 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         TermuxActivity.updateTermuxActivityStyling(this, false);
 
         return newTermuxSession;
+    }
+
+    /** Remove a TermuxSession. */
+    @Override
+    public int removeTerminalSession(TerminalSession sessionToRemove) {
+        return removeTermuxSession(sessionToRemove);
     }
 
     /** Remove a TermuxSession. */
