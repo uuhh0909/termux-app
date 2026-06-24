@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 
 import com.termux.R;
 import com.termux.app.event.SystemEventReceiver;
+import com.termux.app.sandbox.SandboxExecutor;
 import com.termux.app.terminal.TermuxTerminalSessionActivityClient;
 import com.termux.app.terminal.TermuxTerminalSessionServiceClient;
 import com.termux.shared.termux.plugins.TermuxPluginUtils;
@@ -75,6 +76,9 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     private final IBinder mBinder = new LocalBinder();
 
     private final Handler mHandler = new Handler();
+
+    /** Mediates AI-proposed commands so AI never receives direct shell/session access. */
+    private final SandboxExecutor mAiSandboxExecutor = new SandboxExecutor(this::executeTermuxSessionCommand);
 
 
     /** The full implementation of the {@link TerminalSessionClient} interface to be used by {@link TerminalSession}
@@ -425,6 +429,20 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     }
 
 
+
+
+    /**
+     * Execute an AI-suggested command through the sandbox policy gate. The AI layer supplies only
+     * command text; this service keeps Android permissions and terminal sessions behind the
+     * sandbox boundary. High-risk commands require explicit user approval and blocked commands are
+     * never dispatched to a shell.
+     */
+    @NonNull
+    public SandboxExecutor.SandboxResult executeAiSuggestedCommand(@NonNull String commandLine,
+                                                                   @Nullable String workingDirectory,
+                                                                   boolean userApprovedHighRisk) {
+        return mAiSandboxExecutor.executeAiCommand(commandLine, workingDirectory, userApprovedHighRisk);
+    }
 
 
 
